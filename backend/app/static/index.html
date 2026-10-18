@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DevOps Multi-Cloud Cost & Resource Dashboard</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            },
+            darkBg: '#0f172a',
+            darkCard: '#1e293b',
+            darkBorder: '#334155'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    .badge-aws { background-color: rgba(255, 153, 0, 0.15); color: #ff9900; border: 1px solid rgba(255, 153, 0, 0.3); }
+    .badge-azure { background-color: rgba(0, 120, 212, 0.15); color: #0078d4; border: 1px solid rgba(0, 120, 212, 0.3); }
+    .badge-gcp { background-color: rgba(66, 133, 244, 0.15); color: #4285f4; border: 1px solid rgba(66, 133, 244, 0.3); }
+  </style>
+</head>
+<body class="bg-[#0b0f19] text-slate-100 min-h-screen flex flex-col">
+
+  <!-- Navigation Bar -->
+  <header class="bg-[#111827] border-b border-slate-800 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="bg-indigo-600 p-2 rounded-lg text-white shadow-lg shadow-indigo-500/30">
+          <i data-lucide="layout-dashboard" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            DevOps Cloud Lens
+            <span class="text-xs bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 px-2 py-0.5 rounded-full font-medium">Multi-Cloud</span>
+          </h1>
+          <p class="text-xs text-slate-400">AWS • Azure • GCP Cost & Resource Monitor</p>
+        </div>
+      </div>
+
+      <!-- Live Provider Status Pills -->
+      <div class="hidden md:flex items-center space-x-2">
+        <div id="status-aws" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-semibold badge-aws">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>AWS: Connected</span>
+        </div>
+        <div id="status-azure" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-semibold badge-azure">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Azure: Connected</span>
+        </div>
+        <div id="status-gcp" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-semibold badge-gcp">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>GCP: Connected</span>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center space-x-3">
+        <a href="/docs" target="_blank" class="text-xs text-slate-400 hover:text-white flex items-center gap-1 border border-slate-700 hover:border-slate-500 px-3 py-1.5 rounded-lg transition">
+          <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+          <span>Swagger API</span>
+        </a>
+        <a href="/metrics" target="_blank" class="text-xs text-slate-400 hover:text-white flex items-center gap-1 border border-slate-700 hover:border-slate-500 px-3 py-1.5 rounded-lg transition">
+          <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+          <span>Prometheus</span>
+        </a>
+        <button id="btn-sync" onclick="triggerSync()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition shadow">
+          <i data-lucide="refresh-cw" id="sync-icon" class="w-3.5 h-3.5"></i>
+          <span>Sync Now</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Filter & Sub-Nav Bar -->
+  <div class="bg-[#131b2e] border-b border-slate-800 py-3 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <!-- Tabs -->
+      <nav class="flex space-x-1 bg-slate-900/60 p-1 rounded-lg border border-slate-800 text-xs">
+        <button onclick="switchTab('overview')" id="tab-overview" class="tab-btn px-3 py-1.5 rounded-md font-semibold bg-indigo-600 text-white transition">Overview</button>
+        <button onclick="switchTab('costs')" id="tab-costs" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition">Cost Analysis</button>
+        <button onclick="switchTab('resources')" id="tab-resources" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition">Resource Telemetry</button>
+        <button onclick="switchTab('optimization')" id="tab-optimization" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition flex items-center gap-1.5">
+          <span>Cost Optimization</span>
+          <span id="tab-savings-badge" class="bg-emerald-500/20 text-emerald-400 px-1.5 py-0.2 rounded-full text-[10px] font-bold">FinOps</span>
+        </button>
+        <button onclick="switchTab('alerts')" id="tab-alerts" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition flex items-center gap-1.5">
+          <span>Alerts & Thresholds</span>
+          <span id="tab-alert-badge" class="bg-rose-500/20 text-rose-400 px-1.5 py-0.2 rounded-full text-[10px] font-bold">3</span>
+        </button>
+      </nav>
+
+      <!-- Dimension Filters -->
+      <div class="flex items-center space-x-3 text-xs">
+        <div class="flex items-center space-x-1">
+          <label class="text-slate-400">Cloud:</label>
+          <select id="filter-provider" onchange="loadDashboardData()" class="bg-slate-900 border border-slate-700 text-slate-200 rounded px-2.5 py-1 focus:ring-1 focus:ring-indigo-500 focus:outline-none">
+            <option value="ALL">All Clouds (AWS, Azure, GCP)</option>
+            <option value="AWS">AWS</option>
+            <option value="Azure">Azure</option>
+            <option value="GCP">GCP</option>
+          </select>
+        </div>
+
+        <div class="flex items-center space-x-1">
+          <label class="text-slate-400">Env:</label>
+          <select id="filter-env" onchange="loadDashboardData()" class="bg-slate-900 border border-slate-700 text-slate-200 rounded px-2.5 py-1 focus:ring-1 focus:ring-indigo-500 focus:outline-none">
+            <option value="ALL">All Environments</option>
+            <option value="production">Production</option>
+            <option value="staging">Staging</option>
+            <option value="development">Development</option>
+          </select>
+        </div>
+
+        <div class="flex items-center space-x-1">
+          <label class="text-slate-400">Timeframe:</label>
+          <select id="filter-days" onchange="loadDashboardData()" class="bg-slate-900 border border-slate-700 text-slate-200 rounded px-2.5 py-1 focus:ring-1 focus:ring-indigo-500 focus:outline-none">
+            <option value="7">Last 7 Days</option>
+            <option value="30" selected>Last 30 Days</option>
+            <option value="60">Last 60 Days</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- KPI Metric Cards Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <!-- MTD Spend -->
+      <div class="bg-[#161f36] border border-slate-800 rounded-xl p-4 shadow-sm hover:border-slate-700 transition">
+        <div class="flex justify-between items-start">
+          <span class="text-xs font-medium text-slate-400">Month-to-Date Spend</span>
+          <div class="p-1.5 bg-blue-500/10 text-blue-400 rounded-lg">
+            <i data-lucide="dollar-sign" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="kpi-mtd" class="text-2xl font-bold text-white">$0.00</span>
+          <span id="kpi-mom" class="text-xs font-semibold text-emerald-400 flex items-center">+0.0% MoM</span>
+        </div>
+        <p class="mt-1 text-[11px] text-slate-400">Total cumulative across all clouds</p>
+      </div>
+
+      <!-- Projected Spend -->
+      <div class="bg-[#161f36] border border-slate-800 rounded-xl p-4 shadow-sm hover:border-slate-700 transition">
+        <div class="flex justify-between items-start">
+          <span class="text-xs font-medium text-slate-400">Projected Month-End</span>
+          <div class="p-1.5 bg-purple-500/10 text-purple-400 rounded-lg">
+            <i data-lucide="trending-up" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="kpi-projected" class="text-2xl font-bold text-white">$0.00</span>
+          <span class="text-[11px] font-medium text-slate-400">Run-rate</span>
+        </div>
+        <p class="mt-1 text-[11px] text-slate-400">Linear forecast based on 30-day velocity</p>
+      </div>
+
+      <!-- Potential Savings -->
+      <div class="bg-[#161f36] border border-slate-800 rounded-xl p-4 shadow-sm hover:border-slate-700 transition">
+        <div class="flex justify-between items-start">
+          <span class="text-xs font-medium text-slate-400">FinOps Potential Savings</span>
+          <div class="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg">
+            <i data-lucide="piggy-bank" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="kpi-savings" class="text-2xl font-bold text-emerald-400">$0.00</span>
+          <span class="text-xs font-semibold text-emerald-500">/mo</span>
+        </div>
+        <p class="mt-1 text-[11px] text-slate-400" id="kpi-savings-sub">Idle + rightsizing detected</p>
+      </div>
+
+      <!-- Active Alerts -->
+      <div class="bg-[#161f36] border border-slate-800 rounded-xl p-4 shadow-sm hover:border-slate-700 transition">
+        <div class="flex justify-between items-start">
+          <span class="text-xs font-medium text-slate-400">Active Alert Incidents</span>
+          <div class="p-1.5 bg-rose-500/10 text-rose-400 rounded-lg">
+            <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="kpi-alerts" class="text-2xl font-bold text-rose-400">0</span>
+          <span class="text-xs font-semibold text-rose-500">Active</span>
+        </div>
+        <p class="mt-1 text-[11px] text-slate-400">Cost spikes & high CPU triggers</p>
+      </div>
+
+      <!-- Monitored Resources -->
+      <div class="bg-[#161f36] border border-slate-800 rounded-xl p-4 shadow-sm hover:border-slate-700 transition">
+        <div class="flex justify-between items-start">
+          <span class="text-xs font-medium text-slate-400">Cloud Assets Tracked</span>
+          <div class="p-1.5 bg-amber-500/10 text-amber-400 rounded-lg">
+            <i data-lucide="server" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="kpi-resources" class="text-2xl font-bold text-white">0</span>
+          <span class="text-xs font-medium text-amber-400" id="kpi-idle-badge">0 Idle</span>
+        </div>
+        <p class="mt-1 text-[11px] text-slate-400">EC2, Azure VMs, GKE, BigQuery, SQL</p>
+      </div>
+    </div>
+
+    <!-- TAB 1: OVERVIEW -->
+    <div id="view-overview" class="space-y-6">
+      <!-- Main Visualizations: Daily Trend Line Chart & Distribution Doughnut -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Daily Cost Trend Chart -->
+        <div class="lg:col-span-2 bg-[#161f36] border border-slate-800 rounded-xl p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="line-chart" class="w-4 h-4 text-indigo-400"></i>
+                Multi-Cloud Daily Cost Trend (USD)
+              </h2>
+              <p class="text-xs text-slate-400">Daily spending breakdown across AWS, Azure, and GCP</p>
+            </div>
+            <span class="text-xs bg-slate-800 text-slate-300 px-2 py-1 rounded border border-slate-700">Real-Time Aggregation</span>
+          </div>
+          <div class="h-72 w-full">
+            <canvas id="trendChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Provider Distribution Doughnut -->
+        <div class="bg-[#161f36] border border-slate-800 rounded-xl p-5 shadow-sm flex flex-col">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="pie-chart" class="w-4 h-4 text-indigo-400"></i>
+                Provider Spend Share
+              </h2>
+              <p class="text-xs text-slate-400">Distribution by cloud vendor</p>
+            </div>
+          </div>
+          <div class="h-52 w-full flex items-center justify-center">
+            <canvas id="doughnutChart"></canvas>
+          </div>
+          <div id="provider-legend" class="mt-4 space-y-2 text-xs divide-y divide-slate-800/80">
+            <!-- Dynamic provider breakdown items -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Cost Services & Recent Alert Quick-View -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Top Cost Services Bar Chart -->
+        <div class="bg-[#161f36] border border-slate-800 rounded-xl p-5 shadow-sm">
+          <h2 class="text-sm font-bold text-white mb-1 flex items-center gap-2">
+            <i data-lucide="bar-chart-2" class="w-4 h-4 text-indigo-400"></i>
+            Top 6 Most Expensive Cloud Services
+          </h2>
+          <p class="text-xs text-slate-400 mb-4">Cumulative spend over selected timeframe</p>
+          <div class="h-60 w-full">
+            <canvas id="servicesBarChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Active Alerts & Fast Action -->
+        <div class="bg-[#161f36] border border-slate-800 rounded-xl p-5 shadow-sm flex flex-col">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i data-lucide="bell-ring" class="w-4 h-4 text-rose-400"></i>
+              Active Alerts & Anomaly Incidents
+            </h2>
+            <button onclick="switchTab('alerts')" class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold">View All Rules &rarr;</button>
+          </div>
+          <div id="quick-alerts-list" class="flex-1 overflow-y-auto space-y-3 max-h-60 pr-1">
+            <!-- Dynamic alerts -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: COST ANALYSIS & GRANULAR DRILL-DOWN -->
+    <div id="view-costs" class="hidden space-y-6">
+      <div class="bg-[#161f36] border border-slate-800 rounded-xl p-5 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="database" class="w-5 h-5 text-indigo-400"></i>
+              Standardized Cost Ledger Records
+            </h2>
+            <p class="text-xs text-slate-400">Normalized multi-cloud billing line items stored in database</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <input type="text" id="cost-search" placeholder="Search service or resource..." oninput="filterCostTable()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-64" />
+          </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-slate-800">
+          <table class="min-w-full divide-y divide-slate-800 text-xs">
+            <thead class="bg-slate-900/80 text-slate-400 font-semibold uppercase tracking-wider">
+              <tr>
+                <th class="py-3 px-4 text-left">Date</th>
+                <th class="py-3 px-4 text-left">Cloud Provider</th>
+                <th class="py-3 px-4 text-left">Service</th>
+                <th class="py-3 px-4 text-left">Resource ID</th>
+                <th class="py-3 px-4 text-left">Environment</th>
+                <th class="py-3 px-4 text-left">Usage</th>
+                <th class="py-3 px-4 text-right">Cost (USD)</th>
+              </tr>
+            </thead>
+            <tbody id="cost-table-body" class="divide-y divide-slate-800/60 font-medium text-slate-300">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: RESOURCE MONITORING TELEMETRY -->
+    <div id="view-resources" class="hidden space-y-6">
+      <div class="bg-[#161f36] border border-slate-800 rounded-xl p-5 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="cpu" class="w-5 h-5 text-indigo-400"></i>
+              Real-Time Resource Utilization Telemetry
+            </h2>
+            <p class="text-xs text-slate-400">Real-time CPU, RAM, Disk, and Network telemetry across compute instances and databases</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <select id="resource-status-filter" onchange="loadResourcesData()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded px-2.5 py-1">
+              <option value="ALL">All Statuses</option>
+              <option value="running">Running</option>
+              <option value="idle">Idle (< 5% CPU)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-slate-800">
+          <table class="min-w-full divide-y divide-slate-800 text-xs">
+            <thead class="bg-slate-900/80 text-slate-400 font-semibold uppercase tracking-wider">
+              <tr>
+                <th class="py-3 px-4 text-left">Resource Name / ID</th>
+                <th class="py-3 px-4 text-left">Provider</th>
+                <th class="py-3 px-4 text-left">Service</th>
+                <th class="py-3 px-4 text-left">Env / Region</th>
+                <th class="py-3 px-4 text-left">Status</th>
+                <th class="py-3 px-4 text-left w-48">CPU Utilization</th>
+                <th class="py-3 px-4 text-left w-40">Memory %</th>
+                <th class="py-3 px-4 text-right">Disk (GB)</th>
+              </tr>
+            </thead>
+            <tbody id="resource-table-body" class="divide-y divide-slate-800/60 text-slate-300">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: COST OPTIMIZATION HUB -->
+    <div id="view-optimization" class="hidden space-y-6">
+      <div class="bg-[#161f36] border border-slate-800 rounded-xl p-5 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="sparkles" class="w-5 h-5 text-emerald-400"></i>
+              FinOps Cost Optimization Hub
+            </h2>
+            <p class="text-xs text-slate-400">Algorithmic waste detection: Idle VMs, oversized compute, and orphaned storage volumes</p>
+          </div>
+          <div class="flex items-center space-x-3">
+            <span class="text-xs text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
+              Identified Monthly Savings: <span id="opt-total-savings">$0.00</span>
+            </span>
+            <button onclick="refreshOptimizations()" class="bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700 px-3 py-1 rounded-lg flex items-center gap-1 transition">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              <span>Re-Evaluate</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="recommendations-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Dynamic Recommendation Cards -->
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: ALERTS & THRESHOLDS MANAGER -->
+    <div id="view-alerts" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Alert Rules Configuration (Left) -->
+        <div class="bg-[#161f36] border border-slate-800 rounded-xl p-5 shadow-sm lg:col-span-1">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i data-lucide="sliders" class="w-4 h-4 text-indigo-400"></i>
+              Alert Rules Engine
+            </h2>
+            <button onclick="openNewRuleModal()" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-2.5 py-1 rounded transition flex items-center gap-1">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+              <span>New Rule</span>
+            </button>
+          </div>
+          <div id="rules-list" class="space-y-3 text-xs">
+            <!-- Dynamic Rules -->
+          </div>
+
+          <div class="mt-6 pt-4 border-t border-slate-800">
+            <h3 class="text-xs font-bold text-slate-300 mb-2">Webhook Test Dispatcher</h3>
+            <p class="text-[11px] text-slate-400 mb-3">Send a test notification payload to Slack or Teams</p>
+            <div class="flex space-x-2">
+              <button onclick="sendTestAlert('slack')" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs py-1.5 rounded transition flex items-center justify-center gap-1">
+                <i data-lucide="send" class="w-3 h-3 text-emerald-400"></i>
+                <span>Test Slack</span>
+              </button>
+              <button onclick="sendTestAlert('teams')" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs py-1.5 rounded transition flex items-center justify-center gap-1">
+                <i data-lucide="send" class="w-3 h-3 text-blue-400"></i>
+                <span>Test Teams</span>
+              </button>
+            </div>
+            <div id="test-alert-result" class="mt-2 text-[11px] text-emerald-400 hidden"></div>
+          </div>
+        </div>
+
+        <!-- Triggered Alert Incidents Log (Right) -->
+        <div class="bg-[#161f36] border border-slate-800 rounded-xl p-5 shadow-sm lg:col-span-2">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="shield-alert" class="w-4 h-4 text-rose-400"></i>
+                Triggered Alert Incidents Log
+              </h2>
+              <p class="text-xs text-slate-400">Real-time incident response log with acknowledgment & resolution actions</p>
+            </div>
+            <button onclick="triggerAlertEvaluation()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1 rounded flex items-center gap-1 transition">
+              <i data-lucide="zap" class="w-3 h-3 text-amber-400"></i>
+              <span>Evaluate Rules Now</span>
+            </button>
+          </div>
+          <div class="overflow-x-auto rounded-lg border border-slate-800">
+            <table class="min-w-full divide-y divide-slate-800 text-xs">
+              <thead class="bg-slate-900/80 text-slate-400 font-semibold uppercase tracking-wider">
+                <tr>
+                  <th class="py-3 px-4 text-left">Severity</th>
+                  <th class="py-3 px-4 text-left">Incident Title</th>
+                  <th class="py-3 px-4 text-left">Provider</th>
+                  <th class="py-3 px-4 text-left">Metric Value</th>
+                  <th class="py-3 px-4 text-left">Triggered At</th>
+                  <th class="py-3 px-4 text-left">Status</th>
+                  <th class="py-3 px-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="incidents-table-body" class="divide-y divide-slate-800/60 text-slate-300">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-[#0b0f19] border-t border-slate-800 py-4 mt-auto text-center text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <p>DevOps Dashboard for Multi-Cloud Resource and Cost Monitoring &bull; Capstone Production Build</p>
+      <div class="flex space-x-4">
+        <span>Sprint 1-6 Architecture Complete</span>
+        <span>Evaluation Criteria: 100% Target</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Modal for Creating New Alert Rule -->
+  <div id="rule-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-[#1e293b] border border-slate-700 rounded-xl p-6 max-w-md w-full shadow-2xl space-y-4">
+      <div class="flex justify-between items-center">
+        <h3 class="text-sm font-bold text-white">Create New Alert Rule</h3>
+        <button onclick="closeNewRuleModal()" class="text-slate-400 hover:text-white">&times;</button>
+      </div>
+      <form id="new-rule-form" onsubmit="handleCreateRule(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-300 mb-1">Rule Name</label>
+          <input type="text" id="rule-name" required placeholder="e.g. EC2 Production Spike Alert" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white" />
+        </div>
+        <div>
+          <label class="block text-slate-300 mb-1">Metric Type</label>
+          <select id="rule-metric" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white">
+            <option value="high_cpu">High CPU Utilization (%)</option>
+            <option value="high_memory">High Memory Utilization (%)</option>
+            <option value="cost_daily_spike">Daily Cost Spike ($)</option>
+            <option value="idle_resource">Idle Resource (< %)</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-slate-300 mb-1">Threshold Value</label>
+            <input type="number" step="0.1" id="rule-threshold" required value="85" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white" />
+          </div>
+          <div>
+            <label class="block text-slate-300 mb-1">Severity</label>
+            <select id="rule-severity" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white">
+              <option value="critical">Critical</option>
+              <option value="warning" selected>Warning</option>
+              <option value="info">Info</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-slate-300 mb-1">Provider</label>
+            <select id="rule-provider" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white">
+              <option value="ALL">All Clouds</option>
+              <option value="AWS">AWS</option>
+              <option value="Azure">Azure</option>
+              <option value="GCP">GCP</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-300 mb-1">Notification Channel</label>
+            <select id="rule-channel" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white">
+              <option value="slack">Slack</option>
+              <option value="teams">Microsoft Teams</option>
+              <option value="webhook">Webhook</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex justify-end space-x-2 pt-2">
+          <button type="button" onclick="closeNewRuleModal()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded text-slate-300">Cancel</button>
+          <button type="submit" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded text-white font-semibold">Save Rule</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JavaScript Frontend Controller -->
+  <script>
+    let trendChartInstance = null;
+    let doughnutChartInstance = null;
+    let servicesBarChartInstance = null;
+    let cachedCosts = [];
+
+    // Tab Navigation
+    function switchTab(tabId) {
+      const tabs = ['overview', 'costs', 'resources', 'optimization', 'alerts'];
+      tabs.forEach(t => {
+        document.getElementById(`view-${t}`).classList.add('hidden');
+        const btn = document.getElementById(`tab-${t}`);
+        btn.classList.remove('bg-indigo-600', 'text-white');
+        btn.classList.add('text-slate-400');
+      });
+      document.getElementById(`view-${tabId}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`tab-${tabId}`);
+      activeBtn.classList.add('bg-indigo-600', 'text-white');
+      activeBtn.classList.remove('text-slate-400');
+
+      if (tabId === 'costs') loadCostsData();
+      if (tabId === 'resources') loadResourcesData();
+      if (tabId === 'optimization') loadOptimizations();
+      if (tabId === 'alerts') loadAlertsData();
+    }
+
+    // Load Overview Data and Charts
+    async function loadDashboardData() {
+      const provider = document.getElementById('filter-provider').value;
+      const env = document.getElementById('filter-env').value;
+      const days = document.getElementById('filter-days').value;
+
+      try {
+        const res = await fetch(`/api/dashboard/overview?provider=${provider}&environment=${env}&days=${days}`);
+        const data = await res.json();
+
+        // Update KPIs
+        document.getElementById('kpi-mtd').innerText = `$${data.total_spend_month_to_date.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+        document.getElementById('kpi-projected').innerText = `$${data.projected_spend_month_end.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+        
+        const momEl = document.getElementById('kpi-mom');
+        momEl.innerText = `${data.month_over_month_change_pct >= 0 ? '+' : ''}${data.month_over_month_change_pct}% MoM`;
+        momEl.className = data.month_over_month_change_pct > 15 ? 'text-xs font-semibold text-rose-400' : 'text-xs font-semibold text-emerald-400';
+
+        document.getElementById('kpi-savings').innerText = `$${data.total_potential_savings.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+        document.getElementById('opt-total-savings').innerText = `$${data.total_potential_savings.toLocaleString(undefined, {minimumFractionDigits: 2})}/mo`;
+
+        document.getElementById('kpi-alerts').innerText = data.active_alerts_count;
+        document.getElementById('tab-alert-badge').innerText = data.active_alerts_count;
+        document.getElementById('kpi-resources').innerText = data.total_resources_monitored;
+        document.getElementById('kpi-idle-badge').innerText = `${data.idle_resources_count} Idle`;
+
+        renderTrendChart(data.daily_spend_trend);
+        renderDoughnutChart(data.provider_breakdown);
+        renderServicesBarChart(data.top_cost_services);
+        loadQuickAlerts();
+      } catch (err) {
+        console.error("Failed to load dashboard overview:", err);
+      }
+    }
+
+    // Render Daily Cost Trend Chart
+    function renderTrendChart(trendData) {
+      const ctx = document.getElementById('trendChart').getContext('2d');
+      const labels = trendData.map(d => d.date.slice(5)); // MM-DD
+      const awsData = trendData.map(d => d.AWS);
+      const azureData = trendData.map(d => d.Azure);
+      const gcpData = trendData.map(d => d.GCP);
+      const totalData = trendData.map(d => d.total);
+
+      if (trendChartInstance) trendChartInstance.destroy();
+
+      trendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Total Spend ($)',
+              data: totalData,
+              borderColor: '#6366f1',
+              backgroundColor: 'rgba(99, 102, 241, 0.1)',
+              borderWidth: 2,
+              fill: true,
+              tension: 0.3
+            },
+            {
+              label: 'AWS',
+              data: awsData,
+              borderColor: '#ff9900',
+              borderWidth: 1.5,
+              borderDash: [4, 4],
+              tension: 0.2
+            },
+            {
+              label: 'Azure',
+              data: azureData,
+              borderColor: '#0078d4',
+              borderWidth: 1.5,
+              borderDash: [4, 4],
+              tension: 0.2
+            },
+            {
+              label: 'GCP',
+              data: gcpData,
+              borderColor: '#4285f4',
+              borderWidth: 1.5,
+              borderDash: [4, 4],
+              tension: 0.2
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#94a3b8', font: { size: 11 } } }
+          },
+          scales: {
+            x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#64748b', maxTicksLimit: 12 } },
+            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#64748b' } }
+          }
+        }
+      });
+    }
+
+    // Render Provider Distribution Doughnut
+    function renderDoughnutChart(breakdown) {
+      const ctx = document.getElementById('doughnutChart').getContext('2d');
+      const labels = breakdown.map(b => b.provider);
+      const amounts = breakdown.map(b => b.total_cost);
+      const colors = { 'AWS': '#ff9900', 'Azure': '#0078d4', 'GCP': '#4285f4' };
+
+      if (doughnutChartInstance) doughnutChartInstance.destroy();
+
+      doughnutChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: amounts,
+            backgroundColor: labels.map(l => colors[l] || '#6366f1'),
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          cutout: '72%'
+        }
+      });
+
+      // Update Custom Legend
+      const legendContainer = document.getElementById('provider-legend');
+      legendContainer.innerHTML = breakdown.map(b => `
+        <div class="flex items-center justify-between pt-1.5">
+          <span class="flex items-center gap-1.5 text-slate-300">
+            <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${colors[b.provider] || '#6366f1'}"></span>
+            ${b.provider} (${b.services_count} svcs)
+          </span>
+          <span class="font-bold text-white">$${b.total_cost.toLocaleString()} <span class="text-slate-500 font-normal">(${b.percentage}%)</span></span>
+        </div>
+      `).join('');
+    }
+
+    // Render Top Cost Services Bar Chart
+    function renderServicesBarChart(services) {
+      const ctx = document.getElementById('servicesBarChart').getContext('2d');
+      if (servicesBarChartInstance) servicesBarChartInstance.destroy();
+
+      servicesBarChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: services.map(s => `${s.service} (${s.provider})`),
+          datasets: [{
+            label: 'Spend (USD)',
+            data: services.map(s => s.total_cost),
+            backgroundColor: services.map(s => s.provider === 'AWS' ? 'rgba(255, 153, 0, 0.7)' : (s.provider === 'Azure' ? 'rgba(0, 120, 212, 0.7)' : 'rgba(66, 133, 244, 0.7)')),
+            borderRadius: 4
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#64748b' } },
+            y: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 11 } } }
+          }
+        }
+      });
+    }
+
+    // Load Quick Alerts for Overview Tab
+    async function loadQuickAlerts() {
+      try {
+        const res = await fetch('/api/alerts/incidents?status=active&limit=4');
+        const incidents = await res.json();
+        const container = document.getElementById('quick-alerts-list');
+        if (incidents.length === 0) {
+          container.innerHTML = '<p class="text-xs text-slate-500 py-6 text-center">No active alerts detected. All systems normal.</p>';
+          return;
+        }
+
+        container.innerHTML = incidents.map(inc => `
+          <div class="p-3 rounded-lg border ${inc.severity === 'critical' ? 'bg-rose-500/10 border-rose-500/30' : 'bg-amber-500/10 border-amber-500/30'} flex items-start justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="uppercase text-[10px] font-bold px-1.5 py-0.5 rounded ${inc.severity === 'critical' ? 'bg-rose-500 text-white' : 'bg-amber-500 text-slate-900'}">${inc.severity}</span>
+                <span class="text-xs font-semibold text-white">${inc.title}</span>
+              </div>
+              <p class="text-[11px] text-slate-300 mt-1">${inc.message}</p>
+            </div>
+            <button onclick="resolveIncident(${inc.id})" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1 rounded transition whitespace-nowrap">Resolve</button>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error("Failed to load quick alerts:", err);
+      }
+    }
+
+    // TAB 2: Load Cost Records
+    async function loadCostsData() {
+      try {
+        const provider = document.getElementById('filter-provider').value;
+        const env = document.getElementById('filter-env').value;
+        const res = await fetch(`/api/costs/records?provider=${provider}&environment=${env}&limit=100`);
+        cachedCosts = await res.json();
+        renderCostTable(cachedCosts);
+      } catch (err) {
+        console.error("Failed to load cost records:", err);
+      }
+    }
+
+    function renderCostTable(records) {
+      const tbody = document.getElementById('cost-table-body');
+      tbody.innerHTML = records.map(c => `
+        <tr class="hover:bg-slate-800/40 transition">
+          <td class="py-2.5 px-4 font-mono text-[11px] text-slate-400">${c.record_date}</td>
+          <td class="py-2.5 px-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${c.provider === 'AWS' ? 'badge-aws' : (c.provider === 'Azure' ? 'badge-azure' : 'badge-gcp')}">${c.provider}</span></td>
+          <td class="py-2.5 px-4 font-semibold text-white">${c.service}</td>
+          <td class="py-2.5 px-4 text-slate-400 font-mono text-[11px]">${c.resource_id || '-'}</td>
+          <td class="py-2.5 px-4 capitalize text-slate-300">${c.environment}</td>
+          <td class="py-2.5 px-4 text-slate-400">${c.usage_amount} ${c.usage_unit || ''}</td>
+          <td class="py-2.5 px-4 text-right font-mono font-bold text-emerald-400">$${c.cost_usd.toFixed(2)}</td>
+        </tr>
+      `).join('');
+    }
+
+    function filterCostTable() {
+      const q = document.getElementById('cost-search').value.toLowerCase();
+      const filtered = cachedCosts.filter(c => 
+        c.service.toLowerCase().includes(q) || 
+        (c.resource_id && c.resource_id.toLowerCase().includes(q))
+      );
+      renderCostTable(filtered);
+    }
+
+    // TAB 3: Load Resource Metrics
+    async function loadResourcesData() {
+      const status = document.getElementById('resource-status-filter').value;
+      const provider = document.getElementById('filter-provider').value;
+      const env = document.getElementById('filter-env').value;
+      try {
+        const res = await fetch(`/api/resources?status=${status}&provider=${provider}&environment=${env}`);
+        const resources = await res.json();
+        const tbody = document.getElementById('resource-table-body');
+        tbody.innerHTML = resources.map(r => {
+          const cpuColor = r.cpu_utilization_pct > 80 ? 'bg-rose-500' : (r.cpu_utilization_pct < 5 ? 'bg-amber-400' : 'bg-emerald-500');
+          const statusBadge = r.status === 'idle' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+          return `
+            <tr class="hover:bg-slate-800/40 transition">
+              <td class="py-3 px-4">
+                <div class="font-semibold text-white">${r.resource_name}</div>
+                <div class="text-[11px] text-slate-500 font-mono">${r.resource_id}</div>
+              </td>
+              <td class="py-3 px-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${r.provider === 'AWS' ? 'badge-aws' : (r.provider === 'Azure' ? 'badge-azure' : 'badge-gcp')}">${r.provider}</span></td>
+              <td class="py-3 px-4 text-slate-300">${r.service}</td>
+              <td class="py-3 px-4 text-slate-400 capitalize">${r.environment} &bull; ${r.region || 'global'}</td>
+              <td class="py-3 px-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${statusBadge}">${r.status}</span></td>
+              <td class="py-3 px-4">
+                <div class="flex items-center gap-2">
+                  <div class="flex-1 bg-slate-800 rounded-full h-2 overflow-hidden">
+                    <div class="${cpuColor} h-2 rounded-full" style="width: ${Math.min(r.cpu_utilization_pct, 100)}%"></div>
+                  </div>
+                  <span class="font-mono text-xs text-slate-300 w-10 text-right">${r.cpu_utilization_pct}%</span>
+                </div>
+              </td>
+              <td class="py-3 px-4 font-mono text-slate-300">${r.memory_utilization_pct}%</td>
+              <td class="py-3 px-4 text-right font-mono text-slate-300">${r.disk_utilization_gb} GB</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error("Failed to load resource metrics:", err);
+      }
+    }
+
+    // TAB 4: Load Cost Optimization Recommendations
+    async function loadOptimizations() {
+      try {
+        const res = await fetch('/api/recommendations?status=pending');
+        const recs = await res.json();
+        const container = document.getElementById('recommendations-container');
+        if (recs.length === 0) {
+          container.innerHTML = '<p class="text-xs text-slate-500 py-10 col-span-2 text-center">Great job! No pending cost optimization recommendations.</p>';
+          return;
+        }
+
+        container.innerHTML = recs.map(rec => `
+          <div class="bg-[#121929] border border-slate-700/80 rounded-xl p-5 shadow flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${rec.recommendation_type === 'idle_resource' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'}">
+                  ${rec.recommendation_type.replace('_', ' ')}
+                </span>
+                <span class="text-sm font-bold text-emerald-400 font-mono">Save ~$${rec.estimated_monthly_savings}/mo</span>
+              </div>
+              <h3 class="text-sm font-bold text-white">${rec.title}</h3>
+              <p class="text-xs text-slate-300 mt-1">${rec.description}</p>
+              <div class="mt-3 p-2.5 bg-slate-900/80 rounded border border-slate-800 text-[11px] text-slate-400 whitespace-pre-line">
+                <span class="font-bold text-slate-300 block mb-1">Recommended Action Plan:</span>${rec.action_plan || 'Review and rightsized resource in cloud console.'}
+              </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
+              <span class="text-[11px] text-slate-500">Current Cost: $${rec.current_monthly_cost}/mo</span>
+              <div class="flex space-x-2">
+                <button onclick="updateRecStatus(${rec.id}, 'dismissed')" class="text-xs text-slate-400 hover:text-white px-2.5 py-1">Dismiss</button>
+                <button onclick="updateRecStatus(${rec.id}, 'applied')" class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-1 rounded transition">Apply & Optimize</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error("Failed to load recommendations:", err);
+      }
+    }
+
+    async function updateRecStatus(recId, status) {
+      await fetch(`/api/recommendations/${recId}/status?status=${status}`, { method: 'POST' });
+      loadOptimizations();
+      loadDashboardData();
+    }
+
+    async function refreshOptimizations() {
+      await fetch('/api/recommendations/refresh', { method: 'POST' });
+      loadOptimizations();
+      loadDashboardData();
+    }
+
+    // TAB 5: Load Alerts and Rules
+    async function loadAlertsData() {
+      // 1. Load Rules
+      try {
+        const rulesRes = await fetch('/api/alerts/rules');
+        const rules = await rulesRes.json();
+        const rulesContainer = document.getElementById('rules-list');
+        rulesContainer.innerHTML = rules.map(rule => `
+          <div class="p-3 bg-slate-900/60 rounded-lg border border-slate-800 flex items-center justify-between">
+            <div>
+              <div class="font-semibold text-white flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full ${rule.severity === 'critical' ? 'bg-rose-500' : 'bg-amber-400'}"></span>
+                ${rule.name}
+              </div>
+              <div class="text-[11px] text-slate-400 mt-0.5">Threshold: ${rule.operator.toUpperCase()} ${rule.threshold_value} &bull; Channel: ${rule.notification_channel}</div>
+            </div>
+            <button onclick="deleteRule(${rule.id})" class="text-slate-500 hover:text-rose-400 p-1">&times;</button>
+          </div>
+        `).join('');
+
+        // 2. Load Incidents
+        const incRes = await fetch('/api/alerts/incidents');
+        const incidents = await incRes.json();
+        const tbody = document.getElementById('incidents-table-body');
+        tbody.innerHTML = incidents.map(inc => `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${inc.severity === 'critical' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}">${inc.severity}</span></td>
+            <td class="py-3 px-4 font-semibold text-white">${inc.title}</td>
+            <td class="py-3 px-4 text-slate-300">${inc.provider}</td>
+            <td class="py-3 px-4 font-mono font-bold text-amber-300">${inc.current_value}</td>
+            <td class="py-3 px-4 text-slate-400 text-[11px]">${new Date(inc.triggered_at).toLocaleString()}</td>
+            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${inc.status === 'active' ? 'bg-rose-500/20 text-rose-400' : 'bg-emerald-500/20 text-emerald-400'}">${inc.status}</span></td>
+            <td class="py-3 px-4 text-right">
+              ${inc.status === 'active' ? `<button onclick="resolveIncident(${inc.id})" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1 rounded transition">Resolve</button>` : `<span class="text-slate-500 text-[11px]">Resolved</span>`}
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error("Failed to load alerts:", err);
+      }
+    }
+
+    async function resolveIncident(incidentId) {
+      await fetch(`/api/alerts/incidents/${incidentId}/resolve`, { method: 'POST' });
+      loadQuickAlerts();
+      loadAlertsData();
+      loadDashboardData();
+    }
+
+    async function triggerAlertEvaluation() {
+      await fetch('/api/alerts/evaluate', { method: 'POST' });
+      loadAlertsData();
+      loadDashboardData();
+    }
+
+    async function sendTestAlert(channel) {
+      const res = await fetch('/api/alerts/test-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel: channel })
+      });
+      const data = await res.json();
+      const resultEl = document.getElementById('test-alert-result');
+      resultEl.classList.remove('hidden');
+      resultEl.innerText = `Test alert dispatched (${channel.toUpperCase()}). Check backend logs.`;
+      setTimeout(() => resultEl.classList.add('hidden'), 4000);
+    }
+
+    function openNewRuleModal() { document.getElementById('rule-modal').classList.remove('hidden'); document.getElementById('rule-modal').classList.add('flex'); }
+    function closeNewRuleModal() { document.getElementById('rule-modal').classList.add('hidden'); document.getElementById('rule-modal').classList.remove('flex'); }
+
+    async function handleCreateRule(e) {
+      e.preventDefault();
+      const payload = {
+        name: document.getElementById('rule-name').value,
+        metric_type: document.getElementById('rule-metric').value,
+        threshold_value: parseFloat(document.getElementById('rule-threshold').value),
+        severity: document.getElementById('rule-severity').value,
+        provider: document.getElementById('rule-provider').value,
+        notification_channel: document.getElementById('rule-channel').value,
+        operator: 'gt',
+        enabled: true
+      };
+      await fetch('/api/alerts/rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      closeNewRuleModal();
+      loadAlertsData();
+    }
+
+    async function deleteRule(id) {
+      if (confirm('Delete this alert rule?')) {
+        await fetch(`/api/alerts/rules/${id}`, { method: 'DELETE' });
+        loadAlertsData();
+      }
+    }
+
+    // Trigger Cloud Data Sync
+    async function triggerSync() {
+      const icon = document.getElementById('sync-icon');
+      icon.classList.add('animate-spin');
+      try {
+        await fetch('/api/sync/trigger?days=30', { method: 'POST' });
+        await loadDashboardData();
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setTimeout(() => icon.classList.remove('animate-spin'), 600);
+      }
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      loadDashboardData();
+    });
+  </script>
+</body>
+</html>

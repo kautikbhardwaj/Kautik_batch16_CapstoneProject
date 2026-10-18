@@ -1,0 +1,119 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "AWS Month-to-Date Spend ($)",
+      "type": "stat",
+      "targets": [
+        { "expr": "sum(cloud_cost_total_usd{provider=\"AWS\"})", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "color": { "mode": "fixed", "fixedColor": "orange" }
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "id": 2,
+      "title": "Azure Month-to-Date Spend ($)",
+      "type": "stat",
+      "targets": [
+        { "expr": "sum(cloud_cost_total_usd{provider=\"Azure\"})", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "color": { "mode": "fixed", "fixedColor": "blue" }
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "id": 3,
+      "title": "GCP Month-to-Date Spend ($)",
+      "type": "stat",
+      "targets": [
+        { "expr": "sum(cloud_cost_total_usd{provider=\"GCP\"})", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "color": { "mode": "fixed", "fixedColor": "green" }
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "id": 4,
+      "title": "Active Critical Alerts",
+      "type": "stat",
+      "targets": [
+        { "expr": "sum(cloud_active_alerts_total{severity=\"critical\"})", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 6 },
+      "id": 5,
+      "title": "Real-Time Compute CPU Utilization (%)",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "cloud_resource_cpu_percent", "legendFormat": "{{ provider }} - {{ resource_name }} ({{ environment }})", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": { "fillOpacity": 15 }
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 6 },
+      "id": 6,
+      "title": "Potential FinOps Monthly Savings ($)",
+      "type": "bargauge",
+      "targets": [
+        { "expr": "cloud_potential_savings_usd", "legendFormat": "{{ recommendation_type }}", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "color": { "mode": "palette-classic" }
+        }
+      }
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["devops", "cloud", "finops", "costs"],
+  "time": { "from": "now-6h", "to": "now" },
+  "title": "DevOps Multi-Cloud Cost & Resource Monitor",
+  "uid": "devops-cost-monitor"
+}

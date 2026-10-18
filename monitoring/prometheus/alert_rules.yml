@@ -1,0 +1,32 @@
+groups:
+  - name: devops_cloud_cost_alerts
+    rules:
+      - alert: HighComputeCPUUtilization
+        expr: cloud_resource_cpu_percent > 85
+        for: 2m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "High CPU utilization on {{ $labels.provider }} ({{ $labels.resource_name }})"
+          description: "Resource CPU usage has exceeded 85% for more than 2 minutes. Current value: {{ $value }}%"
+
+      - alert: CriticalCloudCostSpike
+        expr: cloud_cost_total_usd > 5000
+        for: 5m
+        labels:
+          severity: warning
+          category: finops
+        annotations:
+          summary: "Total cloud spend exceeded monthly alert threshold on {{ $labels.provider }}"
+          description: "Current spend on {{ $labels.provider }} in {{ $labels.environment }} reached ${{ $value }}."
+
+      - alert: ActiveUnresolvedAlertsPresent
+        expr: cloud_active_alerts_total{severity="critical"} > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: operations
+        annotations:
+          summary: "Critical DevOps alerts pending resolution"
+          description: "There are currently {{ $value }} critical unresolved alerts in the dashboard."

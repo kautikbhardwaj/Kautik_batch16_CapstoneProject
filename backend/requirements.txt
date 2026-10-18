@@ -1,0 +1,14 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+sqlalchemy>=2.0.0
+apscheduler>=3.10.0
+prometheus-client>=0.21.0
+httpx>=0.28.0
+python-dotenv>=1.0.0
+python-dateutil>=2.9.0
+boto3>=1.34.0; extra == 'aws'
+azure-mgmt-costmanagement>=4.0.0; extra == 'azure'
+google-cloud-billing>=1.14.0; extra == 'gcp'
+pytest>=8.0.0
