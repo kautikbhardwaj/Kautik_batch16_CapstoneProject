@@ -6,88 +6,117 @@
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ed.svg)](https://www.docker.com/)
 [![Prometheus](https://img.shields.io/badge/Prometheus-Alertmanager-e6522c.svg)](https://prometheus.io/)
 [![Grafana](https://img.shields.io/badge/Grafana-10.4-f46800.svg)](https://grafana.com/)
-[![Tests](https://img.shields.io/badge/tests-12%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-13%20passed-brightgreen.svg)]()
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> A centralized, enterprise-grade multi-cloud FinOps & DevOps monitoring platform aggregating resource utilization and cost analytics across **AWS, Microsoft Azure, and Google Cloud Platform (GCP)**.
+> **Enterprise-grade multi-cloud FinOps & DevOps observability platform** aggregating real-time resource utilization and cost analytics across **Amazon Web Services (AWS)**, **Microsoft Azure**, and **Google Cloud Platform (GCP)**.
 
 ---
 
 ## 📌 Problem Statement
 
-Modern DevOps teams frequently struggle to monitor compute resource usage and track infrastructure costs across heterogeneous cloud providers (AWS, Azure, and GCP). Without unified visibility into resource allocation and spend:
-1. **Unchecked Cloud Waste**: Idle virtual machines and orphaned storage disks run indefinitely, accumulating unnecessary charges.
-2. **Billing Blindspots**: Disparate cloud consoles make cross-cloud cost attribution, MoM trend analysis, and budget forecasting extremely tedious.
-3. **Reactive Firefighting**: Cost spikes (e.g. unindexed database queries or runaway ETL jobs) are detected weeks later on the monthly invoice rather than in real time.
+DevOps and Cloud Engineering teams face critical challenges managing multi-cloud infrastructure:
+1. **Cloud Cost Blindspots**: Disparate cloud billing consoles (AWS Cost Explorer, Azure Cost Management, GCP Cloud Billing) prevent a unified view of organizational spend.
+2. **Unchecked Cloud Waste**: Forgotten development VMs, oversized production instances, and unattached storage disks accrue monthly charges indefinitely.
+3. **Delayed Anomaly Detection**: Sudden spend surges caused by unindexed queries or runaway batch pipelines are often only caught weeks later on monthly invoices.
 
-This project delivers a **unified DevOps Resource and Cost Dashboard** that normalizes multi-cloud telemetry, provides real-time and historical trend analytics, executes algorithmic FinOps waste detection, and triggers automated alerts to Slack, Microsoft Teams, and Prometheus Alertmanager.
-
----
-
-## 🌟 Key Features
-
-| Capability | Description |
-| :--- | :--- |
-| **Multi-Cloud Ingestion** | Connectors for **AWS Cost Explorer / CloudWatch**, **Azure Cost Management / Monitor**, and **GCP Cloud Billing / Cloud Monitoring** with a unified relational schema. |
-| **Real-Time & Historical Analytics** | 7-day, 30-day, and 60-day interactive time-series visualizations, MoM growth calculations, linear end-of-month spend forecasting, and vendor distribution charts. |
-| **Algorithmic FinOps Advisor** | Automated waste detection for **idle compute instances** (<5% CPU), **oversized resources** (rightsizing opportunities), and **unattached storage volumes** (orphaned disks) with quantified monthly dollar savings. |
-| **Dynamic Alerting Engine** | Threshold-based rule evaluation with real-time incident logging, severity tagging (Critical, Warning, Info), and webhook dispatching for **Slack** and **Microsoft Teams**. |
-| **Prometheus & Grafana Ready** | Native `/metrics` exporter exposing live Prometheus gauges for total spend, CPU/memory percentages, and active alerts, accompanied by pre-provisioned Grafana dashboards. |
-| **Zero-Friction Sandbox Mode** | Built-in high-fidelity multi-cloud simulation mode allowing instant demonstration and testing with zero external API keys required. |
+This project delivers a **centralized, containerized DevOps dashboard** that standardizes multi-cloud telemetry, computes rolling baseline cost anomalies (Z-Score), automates FinOps waste detection, and dispatches real-time alerts to Slack, Microsoft Teams, and Prometheus Alertmanager.
 
 ---
 
-## 🏛️ System Architecture
+## 🏛️ System Architecture Diagrams
+
+### 1. High-Level C4 Context Diagram
 
 ```mermaid
-flowchart TD
-    subgraph CloudProviders ["Multi-Cloud Infrastructure"]
-        AWS["AWS (Cost Explorer & CloudWatch)"]
-        Azure["Azure (Cost Management & Monitor)"]
-        GCP["GCP (Cloud Billing & Monitoring)"]
+flowchart TB
+    User["👨‍💻 DevOps Engineer / FinOps Lead"]
+    
+    subgraph MultiCloudSystem ["DevOps Multi-Cloud Cost & Observability Platform"]
+        WebUI["🖥️ Interactive Web Dashboard<br/>(Tailwind + Chart.js + React 18)"]
+        CLI["⌨️ Admin CLI Tool<br/>(cli.py)"]
+        BackendApp["⚙️ FastAPI Backend Core<br/>(:8000)"]
+        Database[("💾 Relational Database<br/>(PostgreSQL 16 / SQLite)")]
+        PrometheusServer["📊 Prometheus Server<br/>(:9090)"]
+        AlertManager["🔔 Prometheus Alertmanager<br/>(:9093)"]
+        GrafanaUI["📈 Grafana Dashboards<br/>(:3000)"]
     end
 
-    subgraph Backend ["FastAPI Core Microservice"]
-        Connectors["Multi-Cloud Connectors & Simulator"]
-        Aggregator["Unified Data Ingestion Engine"]
-        Analytics["Analytics & Run-rate Engine"]
-        Optimizer["FinOps Cost Optimization Advisor"]
-        AlertEngine["Threshold & Anomaly Alert Engine"]
-        PrometheusExp["Prometheus Exporter (/metrics)"]
+    subgraph ExternalClouds ["Cloud Providers"]
+        AWSCloud["☁️ AWS Cost Explorer & CloudWatch"]
+        AzureCloud["☁️ Azure Cost Management & Monitor"]
+        GCPCloud["☁️ GCP Cloud Billing & Monitoring"]
     end
 
-    subgraph Database ["Persistence Layer"]
-        DB[(PostgreSQL / SQLite)]
+    subgraph NotificationChannels ["Notification Channels"]
+        Slack["💬 Slack Incoming Webhooks"]
+        Teams["👥 Microsoft Teams MessageCards"]
     end
 
-    subgraph FrontendMonitoring ["Visualization & Observability"]
-        SPA["DevOps Interactive Web Dashboard"]
-        Grafana["Grafana 10.4 Dashboards"]
-        Prometheus["Prometheus Server :9090"]
-        Alertmanager["Prometheus Alertmanager :9093"]
-        Slack["Slack / Microsoft Teams Webhooks"]
-    end
+    User -->|Views Spend & Resolves Alerts| WebUI
+    User -->|Runs Scripted Operations| CLI
+    WebUI -->|REST API Requests| BackendApp
+    CLI -->|DB / Sync Ingestion| BackendApp
 
-    AWS --> Connectors
-    Azure --> Connectors
-    GCP --> Connectors
+    BackendApp -->|Ingests Billing & Metrics| AWSCloud
+    BackendApp -->|Ingests Usage & Telemetry| AzureCloud
+    BackendApp -->|Ingests SKU Billing & Slots| GCPCloud
 
-    Connectors --> Aggregator
-    Aggregator --> DB
-    DB --> Analytics
-    DB --> Optimizer
-    DB --> AlertEngine
+    BackendApp <-->|CRUD Operations| Database
+    BackendApp -->|Exposes /metrics| PrometheusServer
+    PrometheusServer -->|Evaluates Alert Rules| AlertManager
+    PrometheusServer -->|Metrics Datasource| GrafanaUI
 
-    Analytics --> SPA
-    Optimizer --> SPA
-    AlertEngine --> SPA
-    AlertEngine --> Slack
-
-    DB --> PrometheusExp
-    PrometheusExp --> Prometheus
-    Prometheus --> Alertmanager
-    Prometheus --> Grafana
-    Alertmanager --> Slack
+    BackendApp -->|Dispatches Cost Spike Alerts| Slack
+    BackendApp -->|Dispatches Budget Alerts| Teams
+    AlertManager -->|Dispatches Critical Alerts| Slack
 ```
+
+---
+
+### 2. Microservice Deployment & Container Topology
+
+```mermaid
+flowchart LR
+    subgraph DockerHost ["Docker Engine / Kubernetes Node"]
+        direction TB
+        
+        subgraph AppTier ["Application Tier"]
+            App["app:8000<br/>FastAPI + SPA"]
+        end
+
+        subgraph StorageTier ["Data Tier"]
+            Postgres["db:5432<br/>PostgreSQL 16 Alpine"]
+            PostgresVol[("postgres_data")]
+            Postgres --- PostgresVol
+        end
+
+        subgraph MonitoringTier ["Observability Tier"]
+            Prom["prometheus:9090<br/>Prometheus v2.50"]
+            AM["alertmanager:9093<br/>Alertmanager v0.27"]
+            Graf["grafana:3000<br/>Grafana 10.4"]
+        end
+    end
+
+    App <-->|SQL Queries| Postgres
+    Prom -->|Scrapes /metrics| App
+    Prom -->|Fires Alerts| AM
+    Graf -->|PromQL Queries| Prom
+```
+
+---
+
+## 🌟 Key Functional Modules
+
+| Module | Core Features | Source Location |
+| :--- | :--- | :--- |
+| **Multi-Cloud Connectors** | Unified adapter pattern connecting to AWS Cost Explorer, Azure Cost Management, and GCP Cloud Billing with high-fidelity offline simulation fallback. | [`backend/app/services/cloud/`](backend/app/services/cloud/) |
+| **Data Ingestion Engine** | Normalizes disparate cloud pricing models into a unified schema; prevents duplicates via idempotent transactions. | [`backend/app/services/aggregator.py`](backend/app/services/aggregator.py) |
+| **Statistical Anomaly Detector** | Rolling 7-day standard deviation and Z-score calculation to detect abnormal spend spikes with root-cause hypotheses. | [`backend/app/services/anomaly.py`](backend/app/services/anomaly.py) |
+| **FinOps Optimization Advisor** | Automated detection of idle compute (<5% CPU), oversized instances (rightsizing), unattached disks, and unallocated Elastic IPs. | [`backend/app/services/optimizer.py`](backend/app/services/optimizer.py) |
+| **Alert Rules & Dispatcher** | Dynamic threshold rule evaluation, incident lifecycle tracking, and formatted Slack/Teams webhook payloads. | [`backend/app/services/alerting.py`](backend/app/services/alerting.py) |
+| **Administrative CLI** | Scriptable command-line tool for cron jobs, CI/CD pipelines, CSV exports, and automated sync. | [`cli.py`](cli.py) |
+| **Prometheus Exporter** | Exposes native metrics at `/metrics` including spend gauges, CPU/memory telemetry, and active alert counts. | [`backend/app/metrics/prometheus.py`](backend/app/metrics/prometheus.py) |
 
 ---
 
@@ -97,40 +126,59 @@ flowchart TD
 - Python 3.11+
 - Git
 
-### 1. Clone & Setup Repository
+### 1. Clone & Set Up Environment
 ```bash
-git clone https://github.com/your-org/devops-cost-dashboard.git
-cd devops-cost-dashboard
+git clone https://github.com/kautikbhardwaj/Kautik_batch16_CapstoneProject.git
+cd Kautik_batch16_CapstoneProject
 ```
 
-### 2. Install Python Dependencies
+### 2. Install Dependencies
 ```bash
 pip install -r backend/requirements.txt
 ```
 
-### 3. Configure Environment Variables
-Copy `.env.example` to `.env`:
-```bash
-cp .env.example .env
-```
-*(By default, `MOCK_CLOUD_MODE=true` is enabled, allowing instant out-of-the-box demonstration without entering cloud API credentials).*
-
-### 4. Run Application
+### 3. Launch Application
 ```bash
 python run.py
 ```
 
-### 5. Access Services
-- 🌐 **Interactive Dashboard UI**: [http://localhost:8000](http://localhost:8000)
-- 📚 **Swagger OpenAPI Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- 📊 **Prometheus Metrics**: [http://localhost:8000/metrics](http://localhost:8000/metrics)
-- 💓 **Healthcheck Endpoint**: [http://localhost:8000/healthz](http://localhost:8000/healthz)
+### 4. Access Services
+- 🌐 **Interactive Dashboard**: [http://localhost:8000](http://localhost:8000)
+- 📚 **Interactive Swagger API**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- 📊 **Prometheus Exporter**: [http://localhost:8000/metrics](http://localhost:8000/metrics)
+- 💓 **Healthcheck**: [http://localhost:8000/healthz](http://localhost:8000/healthz)
 
 ---
 
-## 🐳 Docker & Microservice Deployment
+## ⌨️ Administrative CLI (`cli.py`) Usage
 
-To spin up the complete production microservice stack (**FastAPI, PostgreSQL 16, Prometheus, Alertmanager, and Grafana**):
+For automated operations, cron jobs, and CI/CD pipelines:
+
+```bash
+# Display cloud provider connectivity and health status
+python cli.py status
+
+# Run statistical Z-Score cost anomaly detection
+python cli.py anomalies --threshold 2.0 --days 30
+
+# Run FinOps optimization waste analysis
+python cli.py optimize
+
+# Export standardized multi-cloud cost ledger to CSV
+python cli.py export-csv --output monthly_cloud_ledger.csv
+
+# Trigger multi-cloud synchronization on-demand
+python cli.py sync --days 30
+
+# Dispatch a test webhook alert to Slack or Teams
+python cli.py test-alert --channel slack
+```
+
+---
+
+## 🐳 Docker Compose Deployment
+
+To launch the full microservices stack (**FastAPI, PostgreSQL 16, Prometheus, Alertmanager, Grafana**):
 
 ```bash
 docker compose up --build -d
@@ -139,64 +187,65 @@ docker compose up --build -d
 ### Service Map
 | Container | Port | Description |
 | :--- | :--- | :--- |
-| `devops-cost-app` | `8000` | FastAPI application serving REST API & Web Dashboard |
-| `devops-cost-postgres` | `5432` | Relational database holding historical costs & telemetry |
-| `devops-prometheus` | `9090` | Time-series scraper scraping `/metrics` every 15s |
-| `devops-alertmanager` | `9093` | Alert routing and dispatching service |
-| `devops-grafana` | `3000` | Visual analytics (User: `admin` / Password: `admin`) |
+| `devops-cost-app` | `8000` | FastAPI backend & single-page dashboard UI |
+| `devops-cost-postgres` | `5432` | PostgreSQL relational database |
+| `devops-prometheus` | `9090` | Prometheus scraper & time-series storage |
+| `devops-alertmanager` | `9093` | Alertmanager routing & notification engine |
+| `devops-grafana` | `3000` | Grafana visual analytics (User: `admin` / Pass: `admin`) |
 
 ---
 
-## 🧪 Running Automated Tests
+## 🧪 Automated Testing Suite
 
-Run the Pytest suite to execute unit and integration tests across cloud connectors, data aggregation, FinOps optimization, alerting rules, and API endpoints:
+The repository contains 13 unit and integration test suites covering every layer of the architecture:
 
 ```bash
 python -m pytest backend/tests/ -v
 ```
 
-Output:
 ```text
-backend/tests/test_api.py::test_healthcheck PASSED
-backend/tests/test_api.py::test_prometheus_metrics PASSED
-backend/tests/test_api.py::test_dashboard_overview PASSED
-backend/tests/test_api.py::test_cost_records_api PASSED
-backend/tests/test_api.py::test_resources_api PASSED
-backend/tests/test_api.py::test_alerts_api PASSED
-backend/tests/test_api.py::test_recommendations_api PASSED
-backend/tests/test_api.py::test_sync_status_api PASSED
-backend/tests/test_connectors.py::test_aws_connector PASSED
-backend/tests/test_connectors.py::test_azure_connector PASSED
-backend/tests/test_connectors.py::test_gcp_connector PASSED
-backend/tests/test_optimizer.py::test_cost_optimization_engine PASSED
+backend/tests/test_anomaly.py::test_anomaly_detection_engine PASSED      [  7%]
+backend/tests/test_api.py::test_healthcheck PASSED                       [ 15%]
+backend/tests/test_api.py::test_prometheus_metrics PASSED                [ 23%]
+backend/tests/test_api.py::test_dashboard_overview PASSED                [ 30%]
+backend/tests/test_api.py::test_cost_records_api PASSED                  [ 38%]
+backend/tests/test_api.py::test_resources_api PASSED                     [ 46%]
+backend/tests/test_api.py::test_alerts_api PASSED                        [ 53%]
+backend/tests/test_api.py::test_recommendations_api PASSED               [ 61%]
+backend/tests/test_api.py::test_sync_status_api PASSED                   [ 69%]
+backend/tests/test_connectors.py::test_aws_connector PASSED              [ 76%]
+backend/tests/test_connectors.py::test_azure_connector PASSED            [ 84%]
+backend/tests/test_connectors.py::test_gcp_connector PASSED              [ 92%]
+backend/tests/test_optimizer.py::test_cost_optimization_engine PASSED    [100%]
 
-======================= 12 passed in 1.93s =======================
+============================= 13 passed in 2.23s ==============================
 ```
 
 ---
 
-## 📂 Project Directory Structure
+## 📂 Repository Directory Map
 
 ```text
-devops-cost-dashboard/
+.
 ├── backend/
 │   ├── app/
-│   │   ├── api/                   # REST API routes (dashboard, costs, resources, alerts, sync)
+│   │   ├── api/                   # REST API routes (dashboard, costs, resources, alerts, anomalies, sync)
 │   │   ├── metrics/               # Prometheus /metrics exporter
-│   │   ├── models/                # SQLAlchemy ORM schemas
-│   │   ├── schemas/               # Pydantic v2 validation models
+│   │   ├── models/                # SQLAlchemy relational ORM models
+│   │   ├── schemas/               # Pydantic v2 schemas
 │   │   ├── services/
 │   │   │   ├── cloud/             # AWS, Azure, GCP connectors & sandbox simulator
 │   │   │   ├── aggregator.py      # Multi-cloud ingestion & normalization engine
-│   │   │   ├── analytics.py       # MoM, run-rate, trend analytics
-│   │   │   ├── optimizer.py       # FinOps algorithmic waste detection
+│   │   │   ├── analytics.py       # MoM, run-rate, and trend analytics
+│   │   │   ├── anomaly.py         # Statistical Z-Score anomaly detector
+│   │   │   ├── optimizer.py       # FinOps waste detection engine
 │   │   │   ├── alerting.py        # Dynamic threshold rules evaluation
 │   │   │   └── notifier.py        # Slack & Teams webhook dispatcher
-│   │   ├── static/                # Single-page interactive frontend
-│   │   ├── config.py              # Pydantic BaseSettings
+│   │   ├── static/                # Single-page interactive web UI
+│   │   ├── config.py              # Environment configuration (.env)
 │   │   ├── database.py            # SQLite / PostgreSQL engine & session
 │   │   └── main.py                # FastAPI entrypoint, lifespan & scheduler
-│   ├── tests/                     # 12 Pytest test suites
+│   ├── tests/                     # 13 Pytest test suites
 │   ├── requirements.txt           # Python dependencies
 │   └── Dockerfile                 # Multi-stage production container
 ├── frontend/                      # React 18 + Vite source codebase
@@ -207,26 +256,28 @@ devops-cost-dashboard/
 │   ├── prometheus/                # prometheus.yml & alert_rules.yml
 │   ├── alertmanager/              # alertmanager.yml
 │   └── grafana/                   # Auto-provisioned datasources and dashboard JSON
+├── cli.py                         # Administrative CLI utility
 ├── docker-compose.yml             # Full-stack microservices orchestration
 ├── run.py                         # Single-command local launcher
-├── ARCHITECTURE.md                # System design & data models
-├── SPRINT_REPORT.md               # Sprint 1 to 6 breakdown (120 hours)
+├── ARCHITECTURE.md                # System design, unified schemas & security
+├── SPRINT_REPORT.md               # Sprints 1 to 6 breakdown (120 hours logged)
 ├── COST_OPTIMIZATION_GUIDE.md     # FinOps strategies & rightsizing matrices
-└── VIVA_PRESENTATION_PREP.md      # Comprehensive Viva defense & demo script
+├── DEPLOYMENT_RUNBOOK.md          # Production deployment & operations runbook
+└── VIVA_PRESENTATION_PREP.md      # Viva defense questions & 5-minute demo script
 ```
 
 ---
 
-## 🏆 Sprint Deliverables Mapping
+## 🏆 Sprint Deliverables Mapping (120 Hours)
 
-| Sprint | Goal | Key Deliverables | Status |
+| Sprint | Objective | Deliverables | Status |
 | :---: | :--- | :--- | :---: |
-| **Sprint 1** | Project Setup & Cloud Integration | Multi-cloud connectors for AWS, Azure, GCP, configuration management, credential validation. | ✅ Complete |
-| **Sprint 2** | Data Aggregation & Database Schema | Unified relational data model, ingestion engine, SQLite/PostgreSQL storage, scheduled sync. | ✅ Complete |
-| **Sprint 3** | Real-Time Dashboard Development | Interactive executive dashboard, KPI stat cards, multi-cloud filters (vendor, environment). | ✅ Complete |
-| **Sprint 4** | Historical Analytics & Trends | 30/60-day cost trend line charts, MoM velocity, run-rate forecast, top service breakdowns. | ✅ Complete |
-| **Sprint 5** | Alerting & Notifications | Dynamic threshold rule engine, incident logging, Slack/Teams dispatch, Prometheus exporter. | ✅ Complete |
-| **Sprint 6** | Testing, Docker & Documentation | 12 Pytest test suites, Dockerfile, docker-compose.yml, Grafana dashboard, comprehensive docs. | ✅ Complete |
+| **Sprint 1** | Project Setup & Cloud Integration | Multi-cloud connectors for AWS, Azure, GCP, configuration loader, credential validation. | ✅ Complete |
+| **Sprint 2** | Data Aggregation & Database Schema | Unified relational schema, SQLite & PostgreSQL engine, ingestion pipeline, automated scheduler. | ✅ Complete |
+| **Sprint 3** | Real-Time Dashboard Development | Interactive dashboard UI, executive KPI cards, multi-cloud filters (vendor, environment). | ✅ Complete |
+| **Sprint 4** | Historical Analysis & Trends | Multi-cloud daily trend line charts, MoM velocity, linear forecast, top services bar chart. | ✅ Complete |
+| **Sprint 5** | Alerting & Notifications | Dynamic threshold rule engine, incident tracking, Slack/Teams webhooks, Prometheus exporter. | ✅ Complete |
+| **Sprint 6** | Testing, Containerization & Docs | 13 Pytest suites, Dockerfile, docker-compose.yml, Grafana dashboard, comprehensive documentation. | ✅ Complete |
 
 ---
 

@@ -101,6 +101,10 @@
           <span>Cost Optimization</span>
           <span id="tab-savings-badge" class="bg-emerald-500/20 text-emerald-400 px-1.5 py-0.2 rounded-full text-[10px] font-bold">FinOps</span>
         </button>
+        <button onclick="switchTab('anomalies')" id="tab-anomalies" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition flex items-center gap-1.5">
+          <span>Anomalies</span>
+          <span class="bg-purple-500/20 text-purple-400 px-1.5 py-0.2 rounded-full text-[10px] font-bold">Z-Score</span>
+        </button>
         <button onclick="switchTab('alerts')" id="tab-alerts" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-white transition flex items-center gap-1.5">
           <span>Alerts & Thresholds</span>
           <span id="tab-alert-badge" class="bg-rose-500/20 text-rose-400 px-1.5 py-0.2 rounded-full text-[10px] font-bold">3</span>
@@ -306,6 +310,10 @@
           </div>
           <div class="flex items-center space-x-2">
             <input type="text" id="cost-search" placeholder="Search service or resource..." oninput="filterCostTable()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-64" />
+            <button onclick="exportCostsToCSV()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition">
+              <i data-lucide="download" class="w-3.5 h-3.5 text-indigo-400"></i>
+              <span>Export CSV</span>
+            </button>
           </div>
         </div>
 
@@ -394,8 +402,104 @@
           </div>
         </div>
 
+        <!-- Interactive FinOps Savings Simulator -->
+        <div class="mb-6 p-4 bg-[#111827] rounded-xl border border-slate-700/80">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="calculator" class="w-4 h-4 text-emerald-400"></i>
+              Interactive FinOps ROI & Savings Simulator
+            </h3>
+            <span class="text-xs text-slate-400">Drag sliders to project organizational cloud savings</span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+            <div>
+              <div class="flex justify-between text-slate-300 mb-1">
+                <span>Idle VMs to Schedule/Stop:</span>
+                <span id="sim-idle-val" class="font-bold text-amber-400">3 VMs</span>
+              </div>
+              <input type="range" id="sim-idle-slider" min="0" max="25" value="3" oninput="runFinOpsSimulation()" class="w-full accent-amber-400" />
+              <span class="text-[10px] text-slate-500">Avg. $70/mo savings per idle VM</span>
+            </div>
+            <div>
+              <div class="flex justify-between text-slate-300 mb-1">
+                <span>Oversized Compute to Downsize:</span>
+                <span id="sim-rightsize-val" class="font-bold text-indigo-400">2 Instances</span>
+              </div>
+              <input type="range" id="sim-rightsize-slider" min="0" max="20" value="2" oninput="runFinOpsSimulation()" class="w-full accent-indigo-500" />
+              <span class="text-[10px] text-slate-500">Avg. $110/mo savings per rightsizing</span>
+            </div>
+            <div>
+              <div class="flex justify-between text-slate-300 mb-1">
+                <span>Unattached Disks to Reclaim:</span>
+                <span id="sim-disks-val" class="font-bold text-blue-400">1 Disks</span>
+              </div>
+              <input type="range" id="sim-disks-slider" min="0" max="15" value="1" oninput="runFinOpsSimulation()" class="w-full accent-blue-400" />
+              <span class="text-[10px] text-slate-500">Avg. $40/mo savings per volume</span>
+            </div>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs bg-slate-900/60 p-3 rounded-lg">
+            <div class="flex items-center gap-6">
+              <div>
+                <span class="text-slate-400 block text-[11px]">Simulated Monthly Savings:</span>
+                <span id="sim-monthly-total" class="text-base font-bold text-emerald-400 font-mono">$470.00/mo</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block text-[11px]">Simulated Annualized ROI:</span>
+                <span id="sim-annual-total" class="text-base font-bold text-emerald-300 font-mono">$5,640.00/yr</span>
+              </div>
+            </div>
+            <span class="text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-full font-semibold">
+              Projected FinOps Waste Reduction: <span id="sim-reduction-pct">18.4%</span>
+            </span>
+          </div>
+        </div>
+
         <div id="recommendations-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <!-- Dynamic Recommendation Cards -->
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: ANOMALIES DETECTOR (Z-SCORE) -->
+    <div id="view-anomalies" class="hidden space-y-6">
+      <div class="bg-[#161f36] border border-slate-800 rounded-xl p-5 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="zap" class="w-5 h-5 text-purple-400"></i>
+              Statistical Cost Anomaly Detection
+            </h2>
+            <p class="text-xs text-slate-400">Rolling 7-day standard deviation and Z-score anomaly scoring (Z > 2.0 indicates statistical cost surge)</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span class="text-xs text-purple-400 font-bold bg-purple-500/10 border border-purple-500/30 px-3 py-1 rounded-full">
+              Algorithm: Rolling 7-Day Baseline Z-Score
+            </span>
+            <button onclick="loadAnomaliesData()" class="bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700 px-3 py-1 rounded-lg flex items-center gap-1 transition">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              <span>Re-Scan</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-slate-800">
+          <table class="min-w-full divide-y divide-slate-800 text-xs">
+            <thead class="bg-slate-900/80 text-slate-400 font-semibold uppercase tracking-wider">
+              <tr>
+                <th class="py-3 px-4 text-left">Detection Date</th>
+                <th class="py-3 px-4 text-left">Provider</th>
+                <th class="py-3 px-4 text-left">Service</th>
+                <th class="py-3 px-4 text-left">Actual Spend</th>
+                <th class="py-3 px-4 text-left">Expected Baseline</th>
+                <th class="py-3 px-4 text-left">Z-Score</th>
+                <th class="py-3 px-4 text-left">Spike %</th>
+                <th class="py-3 px-4 text-left">Root Cause Hypothesis</th>
+              </tr>
+            </thead>
+            <tbody id="anomalies-table-body" class="divide-y divide-slate-800/60 text-slate-300">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -557,21 +661,28 @@
 
     // Tab Navigation
     function switchTab(tabId) {
-      const tabs = ['overview', 'costs', 'resources', 'optimization', 'alerts'];
+      const tabs = ['overview', 'costs', 'resources', 'optimization', 'anomalies', 'alerts'];
       tabs.forEach(t => {
-        document.getElementById(`view-${t}`).classList.add('hidden');
+        const el = document.getElementById(`view-${t}`);
+        if (el) el.classList.add('hidden');
         const btn = document.getElementById(`tab-${t}`);
-        btn.classList.remove('bg-indigo-600', 'text-white');
-        btn.classList.add('text-slate-400');
+        if (btn) {
+          btn.classList.remove('bg-indigo-600', 'text-white');
+          btn.classList.add('text-slate-400');
+        }
       });
-      document.getElementById(`view-${tabId}`).classList.remove('hidden');
+      const activeEl = document.getElementById(`view-${tabId}`);
+      if (activeEl) activeEl.classList.remove('hidden');
       const activeBtn = document.getElementById(`tab-${tabId}`);
-      activeBtn.classList.add('bg-indigo-600', 'text-white');
-      activeBtn.classList.remove('text-slate-400');
+      if (activeBtn) {
+        activeBtn.classList.add('bg-indigo-600', 'text-white');
+        activeBtn.classList.remove('text-slate-400');
+      }
 
       if (tabId === 'costs') loadCostsData();
       if (tabId === 'resources') loadResourcesData();
       if (tabId === 'optimization') loadOptimizations();
+      if (tabId === 'anomalies') loadAnomaliesData();
       if (tabId === 'alerts') loadAlertsData();
     }
 
@@ -1001,6 +1112,82 @@
       if (confirm('Delete this alert rule?')) {
         await fetch(`/api/alerts/rules/${id}`, { method: 'DELETE' });
         loadAlertsData();
+      }
+    }
+
+    // Export Cost Ledger to CSV
+    function exportCostsToCSV() {
+      if (!cachedCosts || cachedCosts.length === 0) {
+        alert("No cost records available to export.");
+        return;
+      }
+      const headers = ["Record Date", "Provider", "Service", "Resource ID", "Environment", "Region", "Usage Amount", "Usage Unit", "Cost USD"];
+      const rows = cachedCosts.map(c => [
+        c.record_date,
+        c.provider,
+        `"${c.service}"`,
+        c.resource_id || "",
+        c.environment,
+        c.region || "",
+        c.usage_amount,
+        c.usage_unit || "",
+        c.cost_usd
+      ]);
+      const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `cloud_spend_ledger_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // FinOps Savings Simulator
+    function runFinOpsSimulation() {
+      const idleCount = parseInt(document.getElementById('sim-idle-slider').value, 10);
+      const rightsizeCount = parseInt(document.getElementById('sim-rightsize-slider').value, 10);
+      const disksCount = parseInt(document.getElementById('sim-disks-slider').value, 10);
+
+      document.getElementById('sim-idle-val').innerText = `${idleCount} VMs`;
+      document.getElementById('sim-rightsize-val').innerText = `${rightsizeCount} Instances`;
+      document.getElementById('sim-disks-val').innerText = `${disksCount} Disks`;
+
+      const monthlySavings = (idleCount * 70.0) + (rightsizeCount * 110.0) + (disksCount * 40.0);
+      const annualSavings = monthlySavings * 12.0;
+      const baseSpend = 4200.0;
+      const reductionPct = Math.min((monthlySavings / baseSpend) * 100, 45.0);
+
+      document.getElementById('sim-monthly-total').innerText = `$${monthlySavings.toFixed(2)}/mo`;
+      document.getElementById('sim-annual-total').innerText = `$${annualSavings.toLocaleString(undefined, {minimumFractionDigits: 2})}/yr`;
+      document.getElementById('sim-reduction-pct').innerText = `${reductionPct.toFixed(1)}%`;
+    }
+
+    // Load Anomalies Data
+    async function loadAnomaliesData() {
+      try {
+        const res = await fetch('/api/anomalies?z_threshold=2.0&days=30');
+        const anomalies = await res.json();
+        const tbody = document.getElementById('anomalies-table-body');
+        if (!anomalies || anomalies.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-slate-500 text-xs">No statistical anomalies detected above threshold.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = anomalies.map(a => `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="py-3 px-4 font-mono text-[11px] text-slate-400">${a.date}</td>
+            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${a.provider === 'AWS' ? 'badge-aws' : (a.provider === 'Azure' ? 'badge-azure' : 'badge-gcp')}">${a.provider}</span></td>
+            <td class="py-3 px-4 font-semibold text-white">${a.service}</td>
+            <td class="py-3 px-4 font-mono font-bold text-rose-400">$${a.actual_cost.toFixed(2)}</td>
+            <td class="py-3 px-4 font-mono text-slate-400">$${a.expected_baseline.toFixed(2)}</td>
+            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold ${a.z_score >= 3.0 ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'}">${a.z_score.toFixed(2)}</span></td>
+            <td class="py-3 px-4 font-bold text-rose-400">+${a.percent_spike.toFixed(1)}%</td>
+            <td class="py-3 px-4 text-slate-300 text-[11px]">${a.root_cause_hypothesis}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error("Failed to load anomalies:", err);
       }
     }
 

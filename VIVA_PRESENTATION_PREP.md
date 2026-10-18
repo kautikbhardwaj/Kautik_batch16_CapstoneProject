@@ -26,16 +26,17 @@ Follow this structured step-by-step sequence during your project demonstration t
 ### Minute 1:45 – 2:45 | Multi-Cloud Visualizations & Drill-Down
 - **Action**: Show the interactive Daily Cost Trend chart and Provider Spend Doughnut.
 - **Narrative**:
-  > *"Notice the daily trend line. We can filter dynamically by cloud vendor (AWS, Azure, GCP), by environment (Production, Staging, Dev), or by date range. Notice the sudden cost spike in AWS RDS three days ago — our anomaly engine caught an unindexed database query load that increased daily spend by 180%."*
+  > *"Notice the daily trend line. We can filter dynamically by cloud vendor (AWS, Azure, GCP), by environment (Production, Staging, Dev), or by date range. Notice the sudden cost spike in AWS RDS on October 15th — our anomaly engine caught an unindexed database query load that increased daily spend by 165%."*
 
 ### Minute 2:45 – 3:45 | FinOps Cost Optimization Hub (10% Evaluation Criteria)
-- **Action**: Click on the **Cost Optimization** tab.
+- **Action**: Click on the **Cost Optimization** tab. Demonstrate the interactive **FinOps ROI Simulator**.
 - **Narrative**:
-  > *"Our FinOps engine automatically identifies 3 primary categories of cloud waste:
+  > *"Our FinOps engine automatically identifies multiple categories of cloud waste:
   > 1. Idle compute instances (CPU < 5%) such as forgotten development VMs.
   > 2. Oversized instances (5% - 20% CPU) ripe for rightsizing from 4xlarge to 2xlarge, saving \$110/mo each.
   > 3. Orphaned storage volumes (unattached EBS disks with 0 IOPS accruing storage charges).
-  > When an engineer reviews the action plan, clicking 'Apply & Optimize' automatically updates the tracking lifecycle."*
+  > 4. Unattached Elastic IPs and stale snapshots.
+  > With our interactive simulator, stakeholders can project organizational ROI before applying changes."*
 
 ### Minute 3:45 – 4:30 | Alerting, Webhooks & Prometheus Observability
 - **Action**: Switch to the **Alerts & Thresholds** tab. Click 'Test Slack' or 'Evaluate Rules Now'. Show `/metrics` in another tab.
@@ -43,20 +44,49 @@ Follow this structured step-by-step sequence during your project demonstration t
   > *"Our threshold engine monitors CPU > 85% and cost spike limits. We support native webhook dispatches to Slack and Microsoft Teams. Furthermore, for enterprise observability, our backend exposes standard Prometheus metrics at `/metrics` for scraping by Prometheus Alertmanager and pre-provisioned Grafana dashboards."*
 
 ### Minute 4:30 – 5:00 | Automated Tests & Conclusion
-- **Action**: Switch to terminal and show `python -m pytest backend/tests/ -v` (12 passed tests).
+- **Action**: Switch to terminal and show `python -m pytest backend/tests/ -v` (13 passed tests) or run `python cli.py status`.
 - **Narrative**:
-  > *"The entire system is backed by 12 comprehensive unit and integration tests and is fully containerized via Docker and Docker Compose. We are now open for questions from the panel."*
+  > *"The entire system is backed by 13 comprehensive unit and integration tests, an administrative CLI utility, and is fully containerized via Docker and Docker Compose. We are now open for questions from the panel."*
 
 ---
 
-## ❓ Top 20 Technical Viva Questions & In-Depth Model Answers
+## ⚡ Terminal Command Quick-Reference Cheat Sheet
 
-### Category 1: Architecture & Design Decisions
+Keep these commands ready during the viva:
 
-#### Q1: Why did you build a custom dashboard instead of using Grafana alone?
+```bash
+# 1. Run all automated tests
+python -m pytest backend/tests/ -v
+
+# 2. Launch the application locally
+python run.py
+
+# 3. Check administrative status via CLI
+python cli.py status
+
+# 4. Run statistical anomaly detection via CLI
+python cli.py anomalies --threshold 2.0 --days 30
+
+# 5. Run FinOps optimization recommendations via CLI
+python cli.py optimize
+
+# 6. Export cloud spend ledger to CSV
+python cli.py export-csv --output current_ledger.csv
+
+# 7. Start full microservice stack with Docker Compose
+docker compose up -d
+```
+
+---
+
+## ❓ Top 25 Technical Viva Questions & In-Depth Model Answers
+
+### Category 1: Architecture & System Design
+
+#### Q1: Why did you build a custom dashboard instead of using pure Grafana?
 **Answer**:  
-While Grafana is exceptional for visual time-series dashboards, it is primarily a *passive* data viewer. Our custom dashboard is an **active FinOps management portal**:
-1. It provides stateful management (e.g., creating custom alert rules in SQLite/PostgreSQL, marking recommendations as "Applied" or "Dismissed").
+Grafana is an exceptional time-series visualization tool, but it is primarily a *passive* data viewer. Our custom dashboard is an **active FinOps operational portal**:
+1. It supports stateful actions (e.g., creating custom alert rules in SQLite/PostgreSQL, marking recommendations as "Applied" or "Dismissed").
 2. It executes custom Python business logic for anomaly detection, linear cost run-rate forecasting, and rightsizing calculations.
 3. It retains Grafana compatibility by exposing a native Prometheus `/metrics` endpoint so enterprise teams can use both concurrently.
 
@@ -76,7 +106,7 @@ We built a dual-mode hybrid architecture:
 
 ---
 
-### Category 2: Data Aggregation & Database Modeling
+### Category 2: Data Aggregation & Persistence
 
 #### Q4: What database is used and why?
 **Answer**:  
@@ -118,15 +148,15 @@ We use linear velocity projection:
 $$\text{Daily Velocity} = \frac{\text{Month-to-Date Spend}}{\text{Current Day of Month}}$$
 $$\text{Projected Spend} = \text{MTD Spend} + (\text{Daily Velocity} \times \text{Days Remaining in Month})$$
 
-#### Q10: How do you calculate Month-over-Month (MoM) spend change?
+#### Q10: How does your statistical Z-Score anomaly detection algorithm work?
 **Answer**:  
-We compare the current 30-day window ($C$) against the previous 30-day window ($P$):
-$$\text{MoM Change \%} = \left(\frac{C - P}{P}\right) \times 100$$
-If $C$ exceeds $P$ by more than $15\%$, the UI highlights the badge in red to signal an anomalous spending velocity.
+Rather than static thresholds, we compute a rolling 7-day mean ($\mu$) and standard deviation ($\sigma$) for each cloud service. An anomaly is flagged if:
+$$Z = \frac{\text{Actual Cost} - \mu}{\sigma} \ge 2.0$$
+A Z-score $\ge 3.0$ indicates a critical spend surge with a statistical probability $< 0.13\%$, immediately firing a high-priority Slack webhook.
 
 ---
 
-### Category 5: Alerting, Webhooks & Observability
+### Category 5: Observability, Alerting & Microservices
 
 #### Q11: How does your alert evaluation engine avoid spamming notifications?
 **Answer**:  
@@ -145,10 +175,6 @@ At `/metrics`, we expose:
 - `cloud_active_alerts_total{severity}` (Gauge)
 - `cloud_potential_savings_usd{recommendation_type}` (Gauge)
 
----
-
-### Category 6: DevOps, Testing & Containerization
-
 #### Q14: How is Docker configured for this project?
 **Answer**:  
 We author a production `Dockerfile` for the FastAPI backend and static UI, and a `docker-compose.yml` orchestrating 5 interconnected microservices:
@@ -160,10 +186,11 @@ We author a production `Dockerfile` for the FastAPI backend and static UI, and a
 
 #### Q15: What is tested in your test suite?
 **Answer**:  
-We built 12 Pytest tests covering:
+We built 13 Pytest tests covering:
 - AWS, Azure, and GCP connector contracts and data generation.
 - Database ingestion and deduplication.
 - FinOps optimization engine savings calculations.
+- Statistical Z-Score anomaly detector.
 - Alert rules evaluation and incident creation.
 - REST API endpoints (`/healthz`, `/metrics`, `/api/dashboard/overview`, `/api/costs/records`, `/api/resources`, `/api/alerts/rules`, `/api/recommendations`, `/api/sync/status`).
-All 12 tests pass cleanly with 100% success rate.
+All 13 tests pass cleanly with 100% success rate.

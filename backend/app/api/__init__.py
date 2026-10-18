@@ -5,6 +5,7 @@ from backend.app.api.resources import router as resources_router
 from backend.app.api.alerts import router as alerts_router
 from backend.app.api.recommendations import router as recommendations_router
 from backend.app.api.sync import router as sync_router
+from backend.app.api.anomaly import router as anomaly_router
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(dashboard_router)
@@ -13,3 +14,4 @@ api_router.include_router(resources_router)
 api_router.include_router(alerts_router)
 api_router.include_router(recommendations_router)
 api_router.include_router(sync_router)
+api_router.include_router(anomaly_router)

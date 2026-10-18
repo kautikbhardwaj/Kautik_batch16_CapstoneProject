@@ -24,10 +24,26 @@ flowchart LR
 
 ## 2. Waste Elimination Strategy & Algorithms
 
-### Strategy A: Idle Compute Elimination
+### Strategy A: Idle Compute Elimination & Off-Hours Scheduling
 
 #### Problem Statement
 Non-production environments (Development, QA, Staging) are typically only needed during standard business hours (45 to 50 hours per week). Leaving them running continuously (168 hours per week) results in **over 70% wasted spend**.
+
+```mermaid
+flowchart TD
+    subgraph ContinuousSpend ["Continuous Unmanaged Spend (168 Hrs/Wk)"]
+        MonFriWork["Working Hours: 50 hrs (30%)"]
+        NightsWeekends["Wasted Nights & Weekends: 118 hrs (70%)"]
+    end
+
+    subgraph OptimizedSpend ["Automated FinOps Schedule (50 Hrs/Wk)"]
+        ScheduledStart["Mon-Fri 08:00 AM: Start Instance"]
+        ScheduledStop["Mon-Fri 06:00 PM: Stop Instance"]
+        NetSavings["Net Savings: ~70.2% Monthly Cost Reduction"]
+    end
+
+    ContinuousSpend -->|Apply Schedule| OptimizedSpend
+```
 
 #### Algorithmic Detection Rule
 ```python
@@ -40,10 +56,6 @@ For a standard `m5.large` instance ($0.096/hr) or equivalent Azure `Standard_D2s
 - Business Hours Only (8am - 6pm, Mon-Fri = 50 hrs/wk): $50 \times 4.33 \times \$0.096 = \mathbf{\$20.78/\text{month}}$
 - **Net Monthly Savings: \$49.05 per instance (70.2% reduction)**
 
-#### Actionable Remediation Plan
-1. In Development/Staging: Configure automated scheduled stop/start scripts via AWS EventBridge + Lambda, Azure Automation Runbooks, or GCP Cloud Scheduler.
-2. In Production: Inspect if the instance is a forgotten replica or abandoned microservice; take an automated snapshot and terminate.
-
 ---
 
 ### Strategy B: Compute Rightsizing Matrix
@@ -51,9 +63,12 @@ For a standard `m5.large` instance ($0.096/hr) or equivalent Azure `Standard_D2s
 #### Problem Statement
 Engineers often over-provision cloud compute instances during initial architectural planning "just to be safe." An instance provisioned as `m5.4xlarge` (16 vCPUs, 64 GB RAM) running at 10% CPU load is wasting over half its allocated capital.
 
-#### Algorithmic Detection Rule
-```python
-is_oversized = (5.0 <= average_cpu_utilization_pct <= 20.0) and (memory_utilization_pct < 35.0)
+```mermaid
+flowchart TD
+    Scan["Instance CPU: 5% - 20% & RAM: < 35%"] --> VerifyPeak["Verify Peak Load over 14-Day Window"]
+    VerifyPeak --> HeadroomCheck{"Does Target Tier Provide >= 25% Headroom?"}
+    HeadroomCheck -- Yes --> Downsize["Downsize Tier (e.g. 4xlarge -> 2xlarge)<br/>Save 50% - 65% Monthly"]
+    HeadroomCheck -- No --> Retain["Retain Current Tier (Peak Burst Requirement)"]
 ```
 
 #### Instance Rightsizing Decision Matrix
@@ -64,28 +79,19 @@ is_oversized = (5.0 <= average_cpu_utilization_pct <= 20.0) and (memory_utilizat
 | **Azure `Standard_D4s_v5`** (4 vCPU, 16 GB) | \$140.16 | **`Standard_D2s_v5`** (2 vCPU, 8 GB) | \$70.08 | **\$70.08** | **50.0%** |
 | **GCP `e2-standard-8`** (8 vCPU, 32 GB) | \$196.80 | **`e2-standard-4`** (4 vCPU, 16 GB) | \$98.40 | **\$98.40** | **50.0%** |
 
-#### Safety Protocol for Downsizing
-1. Verify peak memory and CPU utilization over a rolling 14-day window (including batch jobs and traffic spikes).
-2. Ensure at least a **25% safety headroom margin** exists on the target smaller instance tier.
-3. Test downsized configuration in staging under synthetic load before applying to production.
-
 ---
 
-### Strategy C: Orphaned Storage & Unattached Disk Reclamation
+### Strategy C: Orphaned Storage & Unattached Disks
 
-#### Problem Statement
 When an Amazon EC2 instance or Azure VM is terminated, attached EBS volumes or Managed Disks are frequently left behind if the `DeleteOnTermination` flag was false. These orphaned disks accrue monthly storage and provisioned IOPS charges forever without producing any utility.
 
-#### Algorithmic Detection Rule
-```python
-is_orphaned_volume = (disk_capacity_gb > 0) and (cpu_utilization_pct == 0.0) and (attachment_status == "unattached")
+```mermaid
+flowchart LR
+    VM["VM Deletion Event"] --> CheckFlag{"DeleteOnTermination Flag?"}
+    CheckFlag -- True --> DiskDeleted["Disk Automatically Purged"]
+    CheckFlag -- False --> OrphanDisk["Orphaned Disk Left Accruing $0.08 - $0.135 / GB-Month"]
+    OrphanDisk --> FinOpsAction["FinOps Engine Flags Volume<br/>Takes Snapshot & Purges (100% Savings)"]
 ```
-
-#### Monthly Waste Elimination
-- 500 GB AWS gp3 volume at \$0.08/GB-month = **\$40.00/month**
-- 1 TB Azure Premium SSD P30 at \$0.135/GB-month = **\$135.00/month**
-- 500 GB GCP pd-balanced disk at \$0.10/GB-month = **\$50.00/month**
-- **Action**: Automate snapshot retention (7-day lifecycle) and purge the unattached volume immediately.
 
 ---
 
@@ -139,3 +145,4 @@ The DevOps Dashboard implements these principles directly in code:
 2. **Quantified Savings**: Displays exact estimated monthly savings in USD for every identified inefficiency.
 3. **Actionable Plans**: Provides step-by-step remediation instructions for DevOps engineers.
 4. **One-Click State Tracking**: Allows engineers to mark recommendations as `Applied` or `Dismissed` directly through the UI.
+5. **Interactive Simulator**: Allows executives to test organizational ROI using dynamic instance sliders.
