@@ -9,12 +9,12 @@ if PROJECT_ROOT not in sys.path:
 
 if __name__ == "__main__":
     print("=" * 70)
-    print("  🚀 Starting DevOps Multi-Cloud Cost & Resource Monitoring Dashboard")
+    print("  [*] Starting DevOps Multi-Cloud Cost & Resource Monitoring Dashboard")
     print("=" * 70)
-    print("  📍 Interactive Dashboard UI: http://localhost:8000")
-    print("  📚 Swagger API Documentation: http://localhost:8000/docs")
-    print("  📊 Prometheus Metrics:        http://localhost:8000/metrics")
-    print("  💓 Healthcheck:               http://localhost:8000/healthz")
+    print("  [>] Interactive Dashboard UI: http://localhost:8000")
+    print("  [>] Swagger API Documentation: http://localhost:8000/docs")
+    print("  [>] Prometheus Metrics:        http://localhost:8000/metrics")
+    print("  [>] Healthcheck:               http://localhost:8000/healthz")
     print("=" * 70)
 
     uvicorn.run(
